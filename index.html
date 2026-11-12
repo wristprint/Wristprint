@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#102f45">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>wristprint</title>
+<style>
+  :root {
+    --noche: #102f45;        /* azul profundo de la barra lateral */
+    --cancha: #2a6a92;       /* azul de cancha dura */
+    --cancha-claro: #4a8fba;
+    --papel: #f8f6ea;        /* crema de la presentación, más sobrio */
+    --blanco: #ffffff;
+    --tinta: #14293a;
+    --suave: #5f7688;
+    --tenue: #8ea0ad;
+    --linea: #e4e6da;
+    --pelota: #d7ea3f;
+    --pelota-oscuro: #66740a;
+    --arcilla: #c2512a;
+    --pasto: #2f7a45;
+    --titulo: "Sitka Display", "Sitka Heading", "Sitka Text", Cambria, Georgia, serif;
+    --cifra: Bahnschrift, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --texto: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    --sombra: 0 1px 2px rgba(16, 47, 69, .05), 0 12px 32px -16px rgba(16, 47, 69, .22);
+    --sombra-alta: 0 2px 4px rgba(16, 47, 69, .08), 0 28px 56px -24px rgba(16, 47, 69, .45);
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--papel); }
+  body { margin: 0; color: var(--tinta); font: 16px/1.5 var(--texto); min-height: 100vh;
+         display: grid; grid-template-columns: 288px minmax(0, 1fr); }
+  button { font: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--pelota-oscuro); outline-offset: 3px; border-radius: 6px; }
+  [hidden] { display: none !important; }
+  .cifra { font-family: var(--cifra); font-variant-numeric: tabular-nums; font-stretch: 90%; }
+
+  /* ---------- Barra lateral ---------- */
+  .lateral { background: var(--noche); color: #eef3e4; padding: 30px 26px 24px; position: sticky; top: 0; height: 100vh;
+             display: flex; flex-direction: column; overflow: hidden; }
+  .lateral::after { content: ""; position: absolute; right: -120px; bottom: -120px; width: 360px; height: 360px;
+                    border: 2px solid rgba(255,255,255,.07); border-radius: 50%; pointer-events: none; }
+  .marca { font: italic 400 36px/1 var(--titulo); letter-spacing: -.015em; margin: 0; color: #fffdea; }
+  .lema { margin: 6px 0 0; font-size: 13.5px; color: #9fb6c6; }
+
+  .pasos { position: relative; list-style: none; margin: 44px 0 0; padding: 0; }
+  .pasos::before { content: ""; position: absolute; left: 14px; top: 20px; bottom: 34px; width: 2px;
+                   background: rgba(255,255,255,.28); }
+  .pasos button { display: grid; grid-template-columns: 30px 1fr; column-gap: 16px; align-items: start; width: 100%;
+                  background: none; border: 0; color: inherit; text-align: left; padding: 10px 0 22px; }
+  .pasos .punto { width: 12px; height: 12px; border-radius: 50%; margin: 5px 9px 0; background: var(--noche);
+                  border: 2px solid rgba(255,255,255,.55); position: relative; z-index: 1; }
+  .pasos .hecho .punto { background: #fffdea; border-color: #fffdea; }
+  .pasos .nombre { font-weight: 600; font-size: 16px; display: block; }
+  .pasos .ayuda { font-size: 13px; color: #9fb6c6; display: block; }
+  .pasos button:disabled { opacity: .42; }
+  .pasos button:not(:disabled):not([aria-current]):hover .nombre { text-decoration: underline; }
+  .pasos button[aria-current="step"] .nombre { color: var(--pelota); }
+  .pelota { position: absolute; left: 0; top: 0; width: 30px; height: 30px; z-index: 2; pointer-events: none;
+            transition: transform .5s cubic-bezier(.3, 1.35, .5, 1); filter: drop-shadow(0 3px 5px rgba(0,0,0,.35)); }
+
+  .sensor { margin-top: auto; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+            border-radius: 16px; padding: 14px 16px; position: relative; z-index: 1; }
+  .estado { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .estado i { width: 10px; height: 10px; border-radius: 50%; background: #6d8799; flex: none; }
+  .estado.on i { background: var(--pelota); box-shadow: 0 0 0 4px rgba(215, 234, 63, .2); }
+  .estado.off i { background: var(--arcilla); }
+  .sensor .dato { font-size: 13px; color: #9fb6c6; margin: 4px 0 0 20px; min-height: 1.4em; }
+  .sensor .enlace { color: #cfe0ea; font-size: 13px; margin: 8px 0 0 20px; }
+
+  /* ---------- Contenido ---------- */
+  main { padding: 44px 56px 64px; max-width: 1180px; width: 100%; }
+  .aviso { margin-bottom: 24px; padding: 14px 18px; border-radius: 14px; color: #7c2c12; background: #fbe9e1;
+           border: 1px solid #f0c4b3; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .paso { animation: entrar .35s ease both; }
+  @keyframes entrar { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .paso h2 { font: italic 400 52px/1.04 var(--titulo); letter-spacing: -.02em; margin: 0 0 12px; color: var(--tinta); }
+  .paso .entrada { font-size: 18px; color: var(--suave); max-width: 58ch; margin: 0 0 30px; }
+  .nota { color: var(--suave); font-size: 14px; max-width: 70ch; }
+  .error { color: var(--arcilla); font-weight: 600; min-height: 1.5em; margin: 14px 0 0; }
+
+  .boton { border: 1px solid #cfd8de; background: var(--blanco); color: var(--tinta); padding: 10px 20px;
+           border-radius: 999px; font-weight: 600; box-shadow: 0 1px 2px rgba(16,47,69,.06);
+           transition: transform .12s, box-shadow .12s, background .12s; }
+  .boton:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 14px -6px rgba(16,47,69,.3); }
+  .boton:active:not(:disabled) { transform: none; }
+  .boton:disabled { opacity: .45; }
+  .boton.principal { background: var(--pelota); border-color: #b9cc22; color: var(--tinta); font-size: 17px; padding: 14px 30px;
+                     box-shadow: inset 0 -2px 0 rgba(0,0,0,.1), 0 8px 20px -8px rgba(126, 143, 12, .7); }
+  .boton.principal:hover:not(:disabled) { background: #e1f253; }
+  .boton.detener { background: var(--arcilla); border-color: var(--arcilla); color: #fff; font-size: 17px; padding: 14px 30px;
+                   box-shadow: inset 0 -2px 0 rgba(0,0,0,.14), 0 8px 20px -8px rgba(194, 81, 42, .8); }
+  .enlace { background: none; border: 0; padding: 0; color: var(--cancha); text-decoration: underline;
+            text-underline-offset: 3px; font-size: 15px; }
+  .fila { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .tarjeta { background: var(--blanco); border: 1px solid var(--linea); border-radius: 22px; padding: 24px; box-shadow: var(--sombra); }
+  .tarjeta h3 { font: italic 400 26px/1.1 var(--titulo); margin: 0 0 8px; }
+
+  /* Paso 1 */
+  .conectar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); gap: 48px; align-items: center; }
+  .lista { margin: 0 0 30px; padding: 0; list-style: none; counter-reset: p; max-width: 52ch; }
+  .lista li { counter-increment: p; padding: 12px 0 12px 46px; position: relative; border-top: 1px solid var(--linea); }
+  .lista li:last-child { border-bottom: 1px solid var(--linea); }
+  .lista li::before { content: counter(p); position: absolute; left: 4px; top: 9px; font: italic 400 24px/1.3 var(--titulo); color: var(--cancha); }
+  .pista { background: var(--cancha); border-radius: 28px; padding: 22px; box-shadow: var(--sombra-alta); color: #fffdea; text-align: center; }
+  .pista svg { width: 100%; height: auto; display: block; }
+  .pista p { margin: 14px 0 2px; font-weight: 600; }
+  .onda { transform-origin: 160px 250px; opacity: 0; }
+  .buscando .onda { animation: onda 1.8s ease-out infinite; }
+  .buscando .onda.b { animation-delay: .6s; } .buscando .onda.c { animation-delay: 1.2s; }
+  @keyframes onda { from { transform: scale(.4); opacity: .9; } to { transform: scale(3.4); opacity: 0; } }
+
+  /* Paso 2 */
+  .dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 22px; }
+  .interruptor { display: flex; align-items: center; gap: 12px; margin: 14px 0; font-weight: 600; }
+  .interruptor input { appearance: none; width: 52px; height: 30px; border-radius: 999px; background: #d5dde2;
+                       position: relative; margin: 0; cursor: pointer; transition: background .18s; flex: none; }
+  .interruptor input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+                              background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .18s; }
+  .interruptor input:checked { background: var(--cancha); }
+  .interruptor input:checked::after { left: 25px; background: var(--pelota); }
+  .interruptor input:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* Paso 3 */
+  .marcador { background: var(--cancha); color: #fffdea; border-radius: 28px; padding: 30px 36px; box-shadow: var(--sombra-alta);
+              display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap;
+              position: relative; overflow: hidden; transition: background .4s; }
+  .marcador::before { content: ""; position: absolute; inset: 14px; border: 2px solid rgba(255,255,255,.14); border-radius: 16px; pointer-events: none; }
+  .marcador::after { content: ""; position: absolute; top: 14px; bottom: 14px; left: 58%; width: 2px; background: rgba(255,255,255,.14); pointer-events: none; }
+  .marcador.grabando { background: var(--noche); }
+  .marcador > * { position: relative; z-index: 1; }
+  .luz { display: inline-flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+  .luz i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.5); }
+  .grabando .luz i { background: #ff6b3d; animation: latido 1.2s ease-in-out infinite; }
+  @keyframes latido { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,61,.7); } 50% { box-shadow: 0 0 0 9px rgba(255,107,61,0); } }
+  .reloj { font: 500 88px/1 var(--cifra); font-variant-numeric: tabular-nums; font-stretch: 85%; letter-spacing: -.01em; margin: 6px 0 4px; }
+  .cuenta { color: #c5d8e4; }
+  .cuenta b { color: #fffdea; font-family: var(--cifra); font-variant-numeric: tabular-nums; font-size: 18px; }
+
+  .subtitulo { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin: 34px 0 14px; }
+  .subtitulo h3 { font: italic 400 28px/1 var(--titulo); margin: 0; }
+  .diales { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .dial { text-align: center; padding: 20px 16px 18px; }
+  .dial .aro { position: relative; max-width: 190px; margin: 6px auto 0; }
+  .dial svg { width: 100%; height: auto; display: block; }
+  .dial .centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .dial .valor { font: 600 32px/1 var(--cifra); font-variant-numeric: tabular-nums; font-stretch: 88%; }
+  .dial .equiv::after { content: " desde el cero"; }
+  .dial .equiv:empty::after { content: ""; }
+  .dial .equiv { font-size: 13px; color: var(--suave); font-variant-numeric: tabular-nums; margin-top: 4px; min-height: 1.4em; }
+  .dial .eje { font: italic 400 24px/1 var(--titulo); color: var(--cancha); }
+  .trazos { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px; margin-top: 22px; }
+  .trazo .cab { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .trazo .cab span { font-weight: 600; }
+  .trazo .cab strong { font: 600 30px/1 var(--cifra); font-variant-numeric: tabular-nums; font-stretch: 88%; }
+  .trazo .cab strong small { font: 400 14px var(--texto); color: var(--suave); }
+  .trazo canvas { width: 100%; height: 130px; display: block; margin-top: 10px; }
+  .trazo .pie { display: flex; justify-content: space-between; font-size: 13px; color: var(--tenue); margin-top: 6px; }
+  .recepcion { margin: 22px 0 6px; font-size: 15px; display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap;
+               background: var(--blanco); border: 1px solid var(--linea); border-radius: 999px; padding: 8px 16px; }
+  .recepcion b.bien { color: var(--pasto); } .recepcion b.atencion { color: var(--arcilla); }
+
+  /* Paso 4 */
+  .resumen { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0; padding: 8px 0; }
+  .resumen div { padding: 14px 26px; border-left: 1px solid var(--linea); }
+  .resumen div:first-child { border-left: 0; }
+  .resumen dt { color: var(--suave); font-size: 14px; }
+  .resumen dd { margin: 2px 0 0; font: 500 46px/1.1 var(--cifra); font-variant-numeric: tabular-nums; font-stretch: 86%; }
+  .resumen dd small { font: 400 16px var(--texto); color: var(--suave); }
+  .sesion canvas { width: 100%; height: 170px; display: block; margin-top: 10px; }
+  .veredicto { display: flex; gap: 12px; align-items: flex-start; margin: 22px 0 0; max-width: 72ch; }
+  .veredicto i { flex: none; width: 22px; height: 22px; border-radius: 50%; margin-top: 1px; background: var(--pasto);
+                 display: grid; place-items: center; color: #fff; font: 700 13px/1 var(--texto); font-style: normal; }
+  .veredicto.atencion i { background: var(--arcilla); }
+
+  /* Aviso breve */
+  #brindis { position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+             background: var(--tinta); color: #fffdea; padding: 11px 20px; border-radius: 999px; font-weight: 600; font-size: 15px;
+             box-shadow: var(--sombra-alta); transition: opacity .25s, transform .25s; z-index: 10; }
+  #brindis.visible { opacity: 1; transform: translate(-50%, 0); }
+
+  /* Detalles técnicos */
+  details.tecnico { margin-top: 48px; background: var(--blanco); border: 1px solid var(--linea); border-radius: 18px; padding: 16px 22px; }
+  details.tecnico > summary { cursor: pointer; font-weight: 600; color: var(--suave); }
+  details.tecnico h4 { font-size: 15px; margin: 24px 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--linea); vertical-align: top; }
+  th { color: var(--suave); font-weight: 600; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  code { font-family: Consolas, ui-monospace, monospace; font-size: 12.5px; }
+  .tec2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 22px; }
+  #eventos { max-height: 220px; overflow: auto; font: 12.5px/1.5 Consolas, ui-monospace, monospace;
+             background: var(--papel); border-radius: 10px; padding: 10px 12px; }
+  #eventos div { white-space: pre-wrap; }
+  .ok { color: var(--pasto); } .bad { color: var(--arcilla); } .warn { color: var(--pelota-oscuro); }
+  .bar { height: 8px; background: var(--cancha); border-radius: 4px; min-width: 1px; }
+
+  @media (max-width: 980px) {
+    body { display: block; }
+    .lateral { position: static; height: auto; padding: 18px 20px; }
+    .lateral::after, .lema, .pasos .ayuda, .pasos::before { display: none; }
+    .pasos { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 18px; }
+    .pasos button { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 0 0 4px; row-gap: 8px; }
+    .pasos .punto { margin: 9px 0 0; } .pasos .nombre { font-size: 14px; }
+    .sensor { margin-top: 16px; }
+    main { padding: 28px 20px 48px; }
+    .paso h2 { font-size: 38px; }
+    .conectar { grid-template-columns: 1fr; gap: 28px; }
+    .diales { grid-template-columns: 1fr; }
+    .resumen { grid-template-columns: repeat(2, 1fr); }
+    .resumen div:nth-child(3) { border-left: 0; }
+    .reloj { font-size: 64px; }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    .lateral { padding: calc(14px + env(safe-area-inset-top)) 18px 14px; display: grid; grid-template-columns: 1fr auto; align-items: center; row-gap: 14px; }
+    .marca { font-size: 28px; }
+    .lateral nav { grid-column: 1 / -1; grid-row: 2; }
+    .pasos { margin-top: 0; }
+    .pasos .nombre { font-size: 13px; }
+    .sensor { margin: 0; padding: 7px 12px; border-radius: 999px; grid-column: 2; grid-row: 1; max-width: 190px; }
+    .sensor .dato, .sensor .enlace { display: none; }
+    .estado { font-size: 13px; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    main { padding: 22px 16px calc(40px + env(safe-area-inset-bottom)); }
+    .paso h2 { font-size: 34px; }
+    .paso .entrada { font-size: 16.5px; margin-bottom: 22px; }
+    .tarjeta { padding: 18px; border-radius: 18px; }
+    .boton { padding: 12px 20px; }
+    .boton.principal, .boton.detener { width: 100%; font-size: 18px; padding: 16px 24px; }
+    .pista { padding: 14px; border-radius: 22px; max-width: 300px; margin: 0 auto; }
+    .marcador { padding: 24px 22px; border-radius: 22px; flex-direction: column; align-items: stretch; gap: 18px; }
+    .marcador::after { display: none; }
+    .marcador > div:last-child { width: 100%; }
+    .reloj { font-size: 68px; }
+    .subtitulo { margin: 26px 0 12px; }
+    .subtitulo h3 { font-size: 24px; }
+    .diales { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .dial { padding: 12px 6px 10px; }
+    .dial .eje { font-size: 19px; }
+    .dial .valor { font-size: 19px; }
+    .dial .equiv { font-size: 11px; margin-top: 1px; min-height: 0; }
+    .dial .equiv::after { content: ""; }
+    .trazos { grid-template-columns: 1fr; gap: 14px; margin-top: 14px; }
+    .trazo .cab strong { font-size: 26px; }
+    .recepcion { border-radius: 16px; }
+    .resumen dd { font-size: 36px; }
+    .resumen div { padding: 12px 18px; }
+    .fila .boton { width: 100%; }
+    details.tecnico { overflow-x: auto; }
+    .tec2 { grid-template-columns: 1fr; }
+    #brindis { bottom: calc(20px + env(safe-area-inset-bottom)); width: max-content; max-width: 90vw; text-align: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pelota, .boton, #brindis { transition: none; }
+    .paso, .buscando .onda, .grabando .luz i { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<aside class="lateral">
+  <p class="marca">wristprint</p>
+  <p class="lema">Registro del sensor de muñeca</p>
+  <nav aria-label="Pasos">
+    <ol class="pasos">
+      <svg class="pelota" id="pelota" viewBox="0 0 30 30" aria-hidden="true">
+        <circle cx="15" cy="15" r="13.5" fill="#d7ea3f" stroke="#102f45" stroke-width="1.5"/>
+        <path d="M5.5 6.5c5 4.5 5 12.5 0 17M24.5 6.5c-5 4.5-5 12.5 0 17" fill="none" stroke="#fffdea" stroke-width="1.7"/>
+      </svg>
+      <li><button data-ir="1" aria-current="step"><span class="punto"></span><span><span class="nombre">Conectar</span><span class="ayuda">Enlaza el sensor por Bluetooth</span></span></button></li>
+      <li><button data-ir="2" disabled><span class="punto"></span><span><span class="nombre">Preparar</span><span class="ayuda">Fija la posición de referencia</span></span></button></li>
+      <li><button data-ir="3" disabled><span class="punto"></span><span><span class="nombre">Registrar</span><span class="ayuda">Graba el movimiento</span></span></button></li>
+      <li><button data-ir="4" disabled><span class="punto"></span><span><span class="nombre">Guardar</span><span class="ayuda">Descarga los datos</span></span></button></li>
+    </ol>
+  </nav>
+  <div class="sensor">
+    <div id="estadoConexion" class="estado"><i></i><span>Sensor sin conectar</span></div>
+    <p class="dato" id="infoDispositivo"></p>
+    <button id="btnDesconectar" class="enlace" hidden>Desconectar</button>
+  </div>
+</aside>
+
+<main>
+  <div id="avisoNavegador" class="aviso" hidden></div>
+  <div id="avisoDesconexion" class="aviso" hidden>
+    <span>Se perdió la conexión con el sensor. Acércalo a la computadora y vuelve a conectar.</span>
+    <button class="boton" id="btnReconectar">Volver a conectar</button>
+  </div>
+
+  <!-- PASO 1 -->
+  <section class="paso" data-paso="1">
+    <div class="conectar">
+      <div>
+        <h2>Conecta el sensor</h2>
+        <p class="entrada">Enciéndelo y déjalo quieto sobre la mesa. Tarda unos 10 segundos en estar listo.</p>
+        <ol class="lista">
+          <li>Pulsa <b>Buscar sensor</b>.</li>
+          <li>En la ventana del navegador, elige <b>Goniometro-IMU</b>.</li>
+          <li>Pulsa <b>Emparejar</b>.</li>
+        </ol>
+        <button id="btnBuscar" class="boton principal">Buscar sensor</button>
+        <p style="margin:18px 0 0"><button id="btnBuscarNombre" class="enlace">No aparece mi sensor en la lista</button></p>
+        <p class="error" id="errorConexion" role="alert"></p>
+      </div>
+      <div class="pista" id="pista">
+        <svg viewBox="0 0 320 300" aria-hidden="true">
+          <g fill="none" stroke="#fffdea" stroke-width="3">
+            <rect x="20" y="20" width="280" height="230"/>
+            <line x1="55" y1="20" x2="55" y2="250"/><line x1="265" y1="20" x2="265" y2="250"/>
+            <line x1="55" y1="135" x2="265" y2="135"/><line x1="160" y1="20" x2="160" y2="135"/>
+            <line x1="160" y1="238" x2="160" y2="250"/>
+          </g>
+          <line x1="8" y1="20" x2="312" y2="20" stroke="#102f45" stroke-width="6" stroke-linecap="round"/>
+          <circle class="onda a" cx="160" cy="250" r="14" fill="none" stroke="#d7ea3f" stroke-width="2"/>
+          <circle class="onda b" cx="160" cy="250" r="14" fill="none" stroke="#d7ea3f" stroke-width="2"/>
+          <circle class="onda c" cx="160" cy="250" r="14" fill="none" stroke="#d7ea3f" stroke-width="2"/>
+          <circle cx="160" cy="250" r="14" fill="#d7ea3f" stroke="#102f45" stroke-width="2"/>
+          <path d="M150.5 241c5 5 5 13 0 18M169.5 241c-5 5-5 13 0 18" fill="none" stroke="#fffdea" stroke-width="2"/>
+        </svg>
+        <p id="textoPista">Esperando al sensor</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PASO 2 -->
+  <section class="paso" data-paso="2" hidden>
+    <h2>Prepara la medición</h2>
+    <p class="entrada">Coloca el sensor en la posición de referencia y mantente quieto. Después fija esa posición como cero.</p>
+    <div class="dos">
+      <div class="tarjeta">
+        <h3>Posición de referencia</h3>
+        <p style="margin-top:0">Los tres ángulos se medirán a partir de la posición en la que pulses el botón.</p>
+        <button id="btnCero" class="boton">Poner ángulos en cero</button>
+        <p class="nota" style="margin:18px 0 0">Esto no repite la calibración del sensor, que se hace sola al encenderlo. Si lo moviste en esos primeros segundos, apágalo, enciéndelo y déjalo quieto.</p>
+      </div>
+      <div class="tarjeta">
+        <h3>Vibración</h3>
+        <label class="interruptor"><input type="checkbox" id="chkAuto"> Avisar con vibración al mover rápido</label>
+        <p class="nota" style="margin-top:0">Vibra una vez al superar 100 °/s y dos veces al superar 200 °/s. Son valores de prueba, todavía sin validar.</p>
+        <button id="btnPulso" class="boton">Probar vibración</button>
+      </div>
+    </div>
+    <p style="margin-top:32px"><button class="boton principal" data-ir="3">Continuar al registro</button></p>
+  </section>
+
+  <!-- PASO 3 -->
+  <section class="paso" data-paso="3" hidden>
+    <h2>Registra el movimiento</h2>
+    <div class="marcador" id="marcador">
+      <div>
+        <span class="luz"><i></i><span id="rEstado">Listo para registrar</span></span>
+        <div class="reloj" id="rTiempo">00:00.0</div>
+        <div class="cuenta"><b id="rFilas">0</b> lecturas guardadas</div>
+      </div>
+      <div>
+        <button id="btnIniciarReg" class="boton principal">Iniciar registro</button>
+        <button id="btnDetenerReg" class="boton detener" hidden>Detener registro</button>
+      </div>
+    </div>
+
+    <div class="subtitulo"><h3>Ángulos</h3><button id="btnCero2" class="boton">Poner ángulos en cero</button></div>
+    <div class="diales">
+      <div class="tarjeta dial"><div class="eje">Yaw</div><div class="aro"><svg id="dYaw" viewBox="0 0 120 120"></svg><div class="centro"><div class="valor"><span id="vYaw">—</span>°</div><div class="equiv" id="sYaw"></div></div></div></div>
+      <div class="tarjeta dial"><div class="eje">Pitch</div><div class="aro"><svg id="dPitch" viewBox="0 0 120 120"></svg><div class="centro"><div class="valor"><span id="vPitch">—</span>°</div><div class="equiv" id="sPitch"></div></div></div></div>
+      <div class="tarjeta dial"><div class="eje">Roll</div><div class="aro"><svg id="dRoll" viewBox="0 0 120 120"></svg><div class="centro"><div class="valor"><span id="vRoll">—</span>°</div><div class="equiv" id="sRoll"></div></div></div></div>
+    </div>
+
+    <div class="trazos">
+      <div class="tarjeta trazo">
+        <div class="cab"><span>Aceleración total</span><strong><span id="vAtot">—</span> <small>m/s²</small></strong></div>
+        <canvas id="cA"></canvas>
+        <div class="pie"><span>Últimos 10 s, incluye la gravedad</span><span id="maxA"></span></div>
+      </div>
+      <div class="tarjeta trazo">
+        <div class="cab"><span>Velocidad angular total</span><strong><span id="vWtot">—</span> <small>°/s</small></strong></div>
+        <canvas id="cW"></canvas>
+        <div class="pie"><span>Últimos 10 s, sin dirección</span><span id="maxW"></span></div>
+      </div>
+    </div>
+    <p class="recepcion" id="lineaRecepcion"></p>
+    <p class="nota">Los ángulos son relativos al cero que fijaste; todavía no equivalen a un movimiento concreto de la muñeca. Cada ángulo se empareja con la lectura recibida justo antes, de forma aproximada.</p>
+  </section>
+
+  <!-- PASO 4 -->
+  <section class="paso" data-paso="4" hidden>
+    <h2>Guarda el registro</h2>
+    <p class="entrada" id="textoGuardar">El registro sigue en esta pestaña. Descárgalo antes de cerrarla.</p>
+    <div class="tarjeta" style="padding:6px 0">
+      <dl class="resumen">
+        <div><dt>Duración</dt><dd><span id="sDur">—</span><small> s</small></dd></div>
+        <div><dt>Lecturas guardadas</dt><dd id="sFilas">—</dd></div>
+        <div><dt>Lecturas por segundo</dt><dd id="sHz">—</dd></div>
+        <div><dt>Lecturas faltantes</dt><dd id="sFaltan">—</dd></div>
+      </dl>
+    </div>
+    <div class="tarjeta trazo sesion" style="margin-top:22px">
+      <div class="cab"><span>Velocidad angular total durante el registro</span><strong><span id="sMaxW">—</span> <small>°/s máx.</small></strong></div>
+      <canvas id="cSesion"></canvas>
+      <div class="pie"><span>0 s</span><span id="sFin"></span></div>
+    </div>
+    <p class="veredicto" id="veredicto"><i>✓</i><span id="sFrase"></span></p>
+    <div class="fila" style="margin-top:28px">
+      <button id="btnCSV" class="boton principal">Descargar datos (CSV)</button>
+      <button id="btnMeta" class="boton">Descargar informe técnico (JSON)</button>
+      <button id="btnNuevo" class="boton">Hacer otro registro</button>
+    </div>
+    <p class="nota" style="margin-top:16px">El archivo CSV se abre con Excel. El informe técnico incluye las unidades, la configuración del sensor y la lista de eventos.</p>
+  </section>
+
+  <!-- DETALLES TÉCNICOS -->
+  <details class="tecnico" id="detalles">
+    <summary>Detalles técnicos</summary>
+    <p class="nota" id="autoprueba"></p>
+
+    <h4>Características del servicio</h4>
+    <table>
+      <thead><tr><th>Característica</th><th>UUID</th><th>Esperado</th><th>Encontrado</th><th>Estado</th></tr></thead>
+      <tbody id="tablaCaracteristicas"></tbody>
+    </table>
+
+    <h4>Última lectura</h4>
+    <table>
+      <thead><tr><th></th><th class="num">X</th><th class="num">Y</th><th class="num">Z</th><th class="num">n</th><th class="num">t_device_ms</th></tr></thead>
+      <tbody>
+        <tr><td>Aceleración, m/s²</td><td class="num" id="vAx">—</td><td class="num" id="vAy">—</td><td class="num" id="vAz">—</td><td class="num" id="vN" rowspan="2">—</td><td class="num" id="sT" rowspan="2">—</td></tr>
+        <tr><td>Velocidad angular, °/s</td><td class="num" id="vGx">—</td><td class="num" id="vGy">—</td><td class="num" id="vGz">—</td></tr>
+      </tbody>
+    </table>
+
+    <h4>Recepción <button id="btnReiniciarDiag" class="enlace" style="font-weight:400;margin-left:10px">Reiniciar contadores</button></h4>
+    <div class="tec2">
+      <table><tbody>
+        <tr><td>Tramas IMU recibidas (válidas)</td><td class="num" id="dValidas">0</td></tr>
+        <tr><td>Tramas con tamaño distinto de 20 bytes</td><td class="num" id="dTamano">0</td></tr>
+        <tr><td>Notificaciones de ángulos recibidas</td><td class="num" id="dAngulos">0</td></tr>
+        <tr><td>Ángulos con formato no válido</td><td class="num" id="dAngMal">0</td></tr>
+        <tr><td>Tramas IMU sin ángulo asociado</td><td class="num" id="dSinAng">0</td></tr>
+        <tr><td>Saltos del contador (eventos)</td><td class="num" id="dSaltos">0</td></tr>
+        <tr><td>Registros faltantes según el contador</td><td class="num" id="dFaltan">0</td></tr>
+        <tr><td>Registros repetidos</td><td class="num" id="dRepetidos">0</td></tr>
+        <tr><td>Reinicios del dispositivo detectados</td><td class="num" id="dReinicios">0</td></tr>
+        <tr><td>Desconexiones</td><td class="num" id="dDescon">0</td></tr>
+        <tr><td>Segmento actual</td><td class="num" id="dSegmento">0</td></tr>
+        <tr><td>Estado del motor leído</td><td class="num" id="estadoMotor">—</td></tr>
+      </tbody></table>
+      <div>
+        <table><tbody>
+          <tr><td>Frecuencia recibida, últimos 2 s (reloj de la computadora)</td><td class="num" id="dHzRx">—</td></tr>
+          <tr><td>Frecuencia del segmento (reloj del dispositivo)</td><td class="num" id="dHzDev">—</td></tr>
+          <tr><td>Esperados / recibidos en el segmento</td><td class="num" id="dEspRec">—</td></tr>
+          <tr><td>Intervalo entre registros consecutivos, media</td><td class="num" id="dDtMedia">—</td></tr>
+          <tr><td>Intervalo mínimo / máximo</td><td class="num" id="dDtMinMax">—</td></tr>
+          <tr><td>Desviación estándar del intervalo</td><td class="num" id="dDtStd">—</td></tr>
+        </tbody></table>
+        <p class="nota" style="margin:10px 0 4px">Intervalos de <code>t_device_ms</code> entre registros consecutivos</p>
+        <table><tbody id="histograma"></tbody></table>
+      </div>
+    </div>
+
+    <h4>Eventos</h4>
+    <div id="eventos"></div>
+  </details>
+</main>
+<div id="brindis" role="status"></div>
+
+<script>
+"use strict";
+
+"use strict";
+
+/* ===================== PROTOCOLO (funciones puras) ===================== */
+const UUID = {
+  servicio: "8f0e0001-6c5a-4a7d-9b1e-2d3c4f506070",
+  angulos:  "8f0e0002-6c5a-4a7d-9b1e-2d3c4f506070",
+  cero:     "8f0e0003-6c5a-4a7d-9b1e-2d3c4f506070",
+  motor:    "8f0e0005-6c5a-4a7d-9b1e-2d3c4f506070",
+  imu:      "8f0e0008-6c5a-4a7d-9b1e-2d3c4f506070",
+};
+const TAM_TRAMA_IMU = 20;
+
+/* Trama de 20 bytes little-endian: uint32 n, uint32 t_ms, int16 Ax,Ay,Az,Gx,Gy,Gz.
+   Devuelve null si el tamaño no es exactamente 20. */
+function decodificarTramaIMU(dv) {
+  if (!dv || dv.byteLength !== TAM_TRAMA_IMU) return null;
+  const ax = dv.getInt16(8, true) / 100, ay = dv.getInt16(10, true) / 100, az = dv.getInt16(12, true) / 100;
+  const gx = dv.getInt16(14, true) / 10, gy = dv.getInt16(16, true) / 10, gz = dv.getInt16(18, true) / 10;
+  return {
+    n: dv.getUint32(0, true), t_device_ms: dv.getUint32(4, true),
+    ax, ay, az, gx, gy, gz,
+    a_total: Math.sqrt(ax * ax + ay * ay + az * az),
+    w_total: Math.sqrt(gx * gx + gy * gy + gz * gz),
+  };
+}
+
+/* Texto "yaw,pitch,roll". Devuelve null si no son exactamente tres números. */
+function analizarAngulos(texto) {
+  const limpio = String(texto).replace(/\0/g, "").trim();
+  const m = /^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(limpio);
+  if (!m) return null;
+  const v = [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])];
+  return v.every(Number.isFinite) ? { yaw: v[0], pitch: v[1], roll: v[2] } : null;
+}
+
+/* Equivalente en (-180, 180] de un ángulo publicado en 0..360. Solo para lectura. */
+function equivalenteConSigno(g) { return g > 180 ? g - 360 : g; }
+
+/* Estadística incremental (media y varianza de Welford). */
+function nuevaEstadistica() { return { k: 0, media: 0, m2: 0, min: Infinity, max: -Infinity }; }
+function acumular(e, x) {
+  e.k++; const d = x - e.media; e.media += d / e.k; e.m2 += d * (x - e.media);
+  if (x < e.min) e.min = x; if (x > e.max) e.max = x;
+}
+function desviacion(e) { return e.k > 1 ? Math.sqrt(e.m2 / (e.k - 1)) : NaN; }
+
+const CUBETAS = [
+  { etiqueta: "< 40 ms", hasta: 40 }, { etiqueta: "40 – 49 ms", hasta: 50 },
+  { etiqueta: "50 – 59 ms", hasta: 60 }, { etiqueta: "60 – 79 ms", hasta: 80 },
+  { etiqueta: "80 – 119 ms", hasta: 120 }, { etiqueta: "≥ 120 ms", hasta: Infinity },
+];
+function indiceCubeta(dt) { return CUBETAS.findIndex(c => dt < c.hasta); }
+
+function nuevoDiagnostico() {
+  return {
+    validas: 0, tamano: 0, angulos: 0, angMal: 0, sinAngulo: 0,
+    saltos: 0, faltantes: 0, repetidos: 0, reinicios: 0,
+    dt: nuevaEstadistica(), hist: CUBETAS.map(() => 0),
+    segPrimero: null, segUltimo: null, segRecibidos: 0,
+  };
+}
+
+/* Clasifica una trama respecto de la anterior dentro del mismo segmento.
+   Devuelve "primera" | "consecutiva" | "salto" | "repetida" | "reinicio". */
+function clasificarContinuidad(anterior, actual) {
+  if (!anterior) return "primera";
+  if (actual.n === anterior.n + 1) return "consecutiva";
+  if (actual.n > anterior.n + 1) return "salto";
+  if (actual.n === anterior.n) return "repetida";
+  return "reinicio";
+}
+
+function autoprueba() {
+  const b = new DataView(new ArrayBuffer(20));
+  b.setUint32(0, 123456, true); b.setUint32(4, 4000000000, true);
+  b.setInt16(8, -981, true); b.setInt16(10, 12, true); b.setInt16(12, 15691, true);
+  b.setInt16(14, -20000, true); b.setInt16(16, 5, true); b.setInt16(18, 32767, true);
+  const s = decodificarTramaIMU(b);
+  const cerca = (a, c) => Math.abs(a - c) < 1e-9;
+  const ok = s && s.n === 123456 && s.t_device_ms === 4000000000 &&
+    cerca(s.ax, -9.81) && cerca(s.ay, 0.12) && cerca(s.az, 156.91) &&
+    cerca(s.gx, -2000) && cerca(s.gy, 0.5) && cerca(s.gz, 3276.7) &&
+    cerca(s.a_total, Math.sqrt(9.81 ** 2 + 0.12 ** 2 + 156.91 ** 2)) &&
+    decodificarTramaIMU(new DataView(new ArrayBuffer(19))) === null &&
+    decodificarTramaIMU(new DataView(new ArrayBuffer(21))) === null;
+  const a = analizarAngulos("12.3,5.4,359.8");
+  const ok2 = a && a.yaw === 12.3 && a.pitch === 5.4 && a.roll === 359.8 &&
+    analizarAngulos("1,2") === null && analizarAngulos("a,b,c") === null &&
+    analizarAngulos("0.0,0.0,0.0\0") !== null;
+  return !!(ok && ok2 && Math.abs(equivalenteConSigno(359.8) + 0.2) < 1e-9 && equivalenteConSigno(180) === 180);
+}
+
+/* ===================== ESTADO ===================== */
+const VENTANA_EMPAREJAMIENTO_MS = 40;   // el firmware publica ángulos justo después de la trama IMU
+const estado = {
+  dispositivo: null, car: {}, conectado: false, conectando: false,
+  segmento: 0, arranque: 0, desconexiones: 0,
+  ultima: null,            // última muestra IMU válida del segmento
+  ultimosAngulos: null,    // últimos ángulos recibidos (para la vista)
+  rxReciente: [],          // instantes de recepción de los últimos 2 s
+  diag: nuevoDiagnostico(),
+  eventos: [],
+  reg: { activo: false, sesion: null, filas: [], t0: null, arranque0: null, inicioISO: null, finISO: null },
+  exportado: true,
+};
+const origenReloj = performance.timeOrigin;
+
+
+estado.paso = 1;
+estado.historial = [];     // {t, a, w} de los últimos 10 s, para los trazos
+const VENTANA_TRAZO_MS = 10000;
+
+/* Resumen de una sesión a partir de sus filas (función pura). */
+function resumirSesion(r) {
+  const f = r.filas; let faltantes = 0, sinAngulo = 0, cortes = 0;
+  for (let i = 0; i < f.length; i++) {
+    if (f[i].yaw === null) sinAngulo++;
+    if (i === 0) continue;
+    if (f[i].segmento !== f[i - 1].segmento) cortes++;
+    else if (f[i].n > f[i - 1].n + 1) faltantes += f[i].n - f[i - 1].n - 1;
+  }
+  const ult = f.length ? f[f.length - 1] : null;
+  const duracion_s = ult && ult.arranque === r.arranque0 ? (ult.t_device_ms - r.t0) / 1000 : null;
+  const lecturas_por_s = duracion_s > 0 && cortes === 0 ? (f.length - 1) / duracion_s : null;
+  return { filas: f.length, duracion_s, lecturas_por_s, faltantes, sin_angulo: sinAngulo, cortes };
+}
+
+/* ===================== UTILIDADES DE INTERFAZ ===================== */
+const $ = id => document.getElementById(id);
+const fmt = (v, d) => (v === null || v === undefined || !Number.isFinite(v)) ? "—" : v.toFixed(d);
+
+function registrarEvento(tipo, detalle) {
+  const e = { t_iso: new Date().toISOString(), tipo, detalle: detalle || "", n: estado.ultima ? estado.ultima.n : null,
+              segmento: estado.segmento };
+  estado.eventos.push(e);
+  const caja = $("eventos"), linea = document.createElement("div");
+  linea.textContent = `${e.t_iso.slice(11, 23)}  ${tipo}${detalle ? "  |  " + detalle : ""}`;
+  caja.prepend(linea);
+  while (caja.childElementCount > 300) caja.lastElementChild.remove();
+}
+
+function ponerEstadoConexion(texto, clase) {
+  const p = $("estadoConexion"); p.lastElementChild.textContent = texto; p.className = "estado" + (clase ? " " + clase : "");
+}
+
+function colocarPelota() {
+  const ol = document.querySelector(".pasos"), b = ol.querySelector('button[aria-current="step"] .punto');
+  if (!b) return;
+  const o = ol.getBoundingClientRect(), m = b.getBoundingClientRect();
+  $("pelota").style.transform = `translate(${m.left - o.left + m.width / 2 - 15}px, ${m.top - o.top + m.height / 2 - 15}px)`;
+}
+function mostrarPaso(k) {
+  estado.paso = k;
+  document.querySelectorAll(".paso").forEach(s => { s.hidden = Number(s.dataset.paso) !== k; });
+  document.querySelectorAll(".pasos button").forEach(b => {
+    const n = Number(b.dataset.ir);
+    if (n === k) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
+    b.parentElement.classList.toggle("hecho", n < k);
+  });
+  colocarPelota();
+  if (k === 4) pintarResumen();
+  habilitarControles();
+  window.scrollTo(0, 0);
+}
+let temporizadorBrindis = 0;
+function brindis(texto) {
+  const b = $("brindis"); b.textContent = texto; b.classList.add("visible");
+  clearTimeout(temporizadorBrindis); temporizadorBrindis = setTimeout(() => b.classList.remove("visible"), 2600);
+}
+
+const ESPERADAS = [
+  { clave: "angulos", nombre: "Ángulos (yaw,pitch,roll)", props: ["read", "notify"] },
+  { clave: "cero",    nombre: "Puesta a cero",            props: ["read", "write"] },
+  { clave: "motor",   nombre: "Motor",                    props: ["read", "write"] },
+  { clave: "imu",     nombre: "Datos IMU (20 bytes)",     props: ["read", "notify"] },
+];
+function propiedadesDe(c) {
+  const p = c.properties, r = [];
+  if (p.read) r.push("read"); if (p.write) r.push("write");
+  if (p.writeWithoutResponse) r.push("writeWithoutResponse");
+  if (p.notify) r.push("notify"); if (p.indicate) r.push("indicate");
+  return r;
+}
+/* Pinta la tabla técnica y devuelve true si las cuatro características están completas. */
+function pintarTablaCaracteristicas(encontradas) {
+  const cuerpo = $("tablaCaracteristicas"); cuerpo.textContent = ""; let todoBien = !!encontradas;
+  const fila = (celdas, clase) => {
+    const tr = document.createElement("tr");
+    celdas.forEach((t, i) => { const td = document.createElement("td");
+      if (i === 1) { const c = document.createElement("code"); c.textContent = t; td.append(c); } else td.textContent = t;
+      if (i === 4 && clase) td.className = clase; tr.append(td); });
+    cuerpo.append(tr);
+  };
+  for (const e of ESPERADAS) {
+    const c = encontradas ? encontradas.find(x => x.uuid === UUID[e.clave]) : null;
+    if (!encontradas) { fila([e.nombre, UUID[e.clave], e.props.join(" + "), "—", "Sin comprobar"]); continue; }
+    if (!c) { todoBien = false; fila([e.nombre, UUID[e.clave], e.props.join(" + "), "—", "No encontrada"], "bad"); continue; }
+    const pr = propiedadesDe(c), faltan = e.props.filter(p => !pr.includes(p));
+    if (faltan.length) todoBien = false;
+    fila([e.nombre, UUID[e.clave], e.props.join(" + "), pr.join(" + "),
+          faltan.length ? "Falta: " + faltan.join(", ") : "Correcta"], faltan.length ? "bad" : "ok");
+  }
+  if (encontradas) for (const c of encontradas) {
+    if (!ESPERADAS.some(e => UUID[e.clave] === c.uuid))
+      fila(["(no prevista)", c.uuid, "—", propiedadesDe(c).join(" + "), "Adicional"], "warn");
+  }
+  return todoBien;
+}
+
+function habilitarControles() {
+  const c = estado.conectado, r = estado.reg, hayBT = !!navigator.bluetooth;
+  $("btnBuscar").disabled = !hayBT || estado.conectando || c;
+  $("btnBuscar").textContent = estado.conectando ? "Conectando…" : c ? "Sensor conectado" : "Buscar sensor";
+  $("pista").classList.toggle("buscando", estado.conectando);
+  $("textoPista").textContent = estado.conectando ? "Conectando con el sensor…" : c ? "Sensor conectado" : "Esperando al sensor";
+  $("btnBuscarNombre").hidden = !hayBT || c || estado.conectando;
+  $("btnDesconectar").hidden = !c;
+  $("btnReconectar").disabled = estado.conectando;
+  $("avisoDesconexion").hidden = c || estado.conectando || !estado.dispositivo || !estado.perdida;
+  for (const id of ["btnCero", "btnCero2"]) $(id).disabled = !c || !estado.car.cero;
+  $("btnPulso").disabled = !c || !estado.car.motor;
+  $("chkAuto").disabled = !c || !estado.car.motor;
+  $("btnIniciarReg").hidden = r.activo; $("btnDetenerReg").hidden = !r.activo;
+  $("btnIniciarReg").disabled = !c || !estado.car.imu;
+  const hayFilas = r.filas.length > 0 && !r.activo;
+  $("btnCSV").disabled = !hayFilas; $("btnMeta").disabled = !hayFilas;
+  const pasos = document.querySelectorAll(".pasos button");
+  pasos[1].disabled = !c; pasos[2].disabled = !c && !r.activo; pasos[3].disabled = !hayFilas;
+}
+
+/* ===================== BLE ===================== */
+/* Las operaciones GATT se encadenan: Windows rechaza operaciones simultáneas. */
+let colaGatt = Promise.resolve();
+function enCola(fn) { const p = colaGatt.then(fn, fn); colaGatt = p.catch(() => {}); return p; }
+
+async function buscar(porNombre) {
+  $("errorConexion").textContent = "";
+  try {
+    const opciones = porNombre
+      ? { filters: [{ namePrefix: "Goniometro" }], optionalServices: [UUID.servicio] }
+      : { filters: [{ services: [UUID.servicio] }] };
+    const d = await navigator.bluetooth.requestDevice(opciones);
+    if (estado.dispositivo && estado.dispositivo !== d)
+      estado.dispositivo.removeEventListener("gattserverdisconnected", alDesconectar);
+    estado.dispositivo = d;
+    d.addEventListener("gattserverdisconnected", alDesconectar);
+    await conectar();
+  } catch (err) {
+    if (err && err.name === "NotFoundError")
+      $("errorConexion").textContent = "No elegiste ningún sensor. Comprueba que está encendido y vuelve a buscar.";
+    else mostrarError("No se pudo buscar el sensor", err);
+    habilitarControles();
+  }
+}
+
+async function conectar() {
+  const d = estado.dispositivo; if (!d) return;
+  estado.conectando = true; habilitarControles();
+  ponerEstadoConexion("Conectando…", ""); $("errorConexion").textContent = "";
+  try {
+    const servidor = await d.gatt.connect();
+    const servicio = await servidor.getPrimaryService(UUID.servicio);
+    let lista;
+    try { lista = await servicio.getCharacteristics(); }
+    catch (_) {   // algunos navegadores solo permiten pedirlas una por una
+      lista = [];
+      for (const e of ESPERADAS) { try { lista.push(await servicio.getCharacteristic(UUID[e.clave])); } catch (_) {} }
+    }
+    const completo = pintarTablaCaracteristicas(lista);
+    estado.car = {};
+    for (const e of ESPERADAS) estado.car[e.clave] = lista.find(c => c.uuid === UUID[e.clave]) || null;
+
+    // Nuevo segmento: lo recibido tras (re)conectar no se compara con lo anterior.
+    estado.segmento++; estado.ultima = null;
+    const dg = estado.diag; dg.segPrimero = null; dg.segUltimo = null; dg.segRecibidos = 0;
+
+    if (estado.car.imu) {
+      estado.car.imu.addEventListener("characteristicvaluechanged", alRecibirIMU);
+      await enCola(() => estado.car.imu.startNotifications());
+    }
+    if (estado.car.angulos) {
+      estado.car.angulos.addEventListener("characteristicvaluechanged", alRecibirAngulos);
+      await enCola(() => estado.car.angulos.startNotifications());
+    }
+    estado.conectado = true; estado.perdida = false;
+    estado.nombreSensor = d.name || "Sensor sin nombre";
+    ponerEstadoConexion(estado.nombreSensor, "on");
+    registrarEvento("CONEXION", `${d.name || "sin nombre"} | id ${d.id} | segmento ${estado.segmento}`);
+    leerEstadoMotor();
+    if (!completo) {
+      $("errorConexion").textContent = "El sensor respondió, pero le faltan funciones que esta página espera. Revisa los detalles técnicos.";
+      $("detalles").open = true;
+    } else if (estado.paso === 1) { estado.conectando = false; mostrarPaso(2); }
+  } catch (err) {
+    mostrarError("No se pudo conectar con el sensor", err);
+    ponerEstadoConexion("Sensor sin conectar", "off");
+    try { if (d.gatt.connected) d.gatt.disconnect(); } catch (_) {}
+  } finally {
+    estado.conectando = false; habilitarControles();
+  }
+}
+
+function alDesconectar() {
+  const estaba = estado.conectado;
+  estado.conectado = false; estado.car = {};
+  if (estaba) {
+    estado.desconexiones++; estado.perdida = !estado.desconexionPedida;
+    registrarEvento("DESCONEXION", estado.desconexionPedida ? "pedida por el usuario" : (estado.reg.activo ? "durante el registro" : ""));
+  }
+  estado.desconexionPedida = false;
+  ponerEstadoConexion("Sensor sin conectar", "off");
+  $("estadoMotor").textContent = "—";
+  if (!estado.reg.activo && estado.paso !== 4) mostrarPaso(1); else habilitarControles();
+}
+
+function mostrarError(donde, err) {
+  const texto = `${donde}: ${err && err.message ? err.message : err}`;
+  $("errorConexion").textContent = texto;
+  registrarEvento("ERROR", texto);
+  if (estado.paso !== 1) brindis("No se pudo enviar la orden al sensor");   // el texto del error solo se ve en el paso 1
+}
+
+async function escribirByte(clave, valor, etiqueta) {
+  const c = estado.car[clave]; if (!c) return false;
+  try {
+    // Un solo byte binario (no el texto "01").
+    const dato = Uint8Array.of(valor);
+    await enCola(() => c.writeValueWithResponse ? c.writeValueWithResponse(dato) : c.writeValue(dato));
+    registrarEvento(etiqueta, `byte 0x${valor.toString(16).padStart(2, "0")}`);
+    return true;
+  } catch (err) { mostrarError(etiqueta, err); return false; }
+}
+
+async function leerEstadoMotor() {
+  const c = estado.car.motor; if (!c) return;
+  try {
+    const dv = await enCola(() => c.readValue());
+    const v = dv.byteLength ? dv.getUint8(0) : null;
+    $("estadoMotor").textContent = v === null ? "—" : `0x${v.toString(16).padStart(2, "0")}`;
+    if (v === 2 || v === 0) $("chkAuto").checked = v === 2;
+  } catch (err) { mostrarError("Lectura del motor", err); }
+}
+
+async function ponerCero() {
+  const ok = await escribirByte("cero", 0x01, "PUESTA_A_CERO");
+  brindis(ok ? "Ángulos en cero" : "No se pudo fijar el cero");
+}
+
+/* ===================== RECEPCIÓN ===================== */
+function alRecibirIMU(ev) {
+  const tRx = performance.now();
+  const dv = ev.target.value, dg = estado.diag;
+  const m = decodificarTramaIMU(dv);
+  if (!m) { dg.tamano++; registrarEvento("TAMANO_INCORRECTO", `${dv.byteLength} bytes`); return; }
+  dg.validas++;
+  estado.rxReciente.push(tRx);
+  estado.historial.push({ t: tRx, a: m.a_total, w: m.w_total });
+
+  const ant = estado.ultima;
+  if (ant && ant.yaw === null) dg.sinAngulo++;
+  const clase = clasificarContinuidad(ant, m);
+  if (clase === "consecutiva") {
+    const dt = m.t_device_ms - ant.t_device_ms;
+    acumular(dg.dt, dt); dg.hist[indiceCubeta(dt)]++;
+  } else if (clase === "salto") {
+    const faltan = m.n - ant.n - 1; dg.saltos++; dg.faltantes += faltan;
+    registrarEvento("SALTO_CONTADOR", `de n=${ant.n} a n=${m.n} | faltan ${faltan} | ${m.t_device_ms - ant.t_device_ms} ms`);
+  } else if (clase === "repetida") {
+    dg.repetidos++;
+  } else if (clase === "reinicio") {
+    dg.reinicios++; estado.segmento++; estado.arranque++;
+    dg.segPrimero = null; dg.segRecibidos = 0;
+    registrarEvento("REINICIO_DISPOSITIVO", `n pasó de ${ant.n} a ${m.n} | segmento ${estado.segmento}`);
+  }
+  if (!dg.segPrimero) dg.segPrimero = { n: m.n, t: m.t_device_ms };
+  dg.segUltimo = { n: m.n, t: m.t_device_ms }; dg.segRecibidos++;
+
+  m.t_rx = tRx; m.segmento = estado.segmento; m.arranque = estado.arranque;
+  m.yaw = null; m.pitch = null; m.roll = null;
+  estado.ultima = m;
+
+  const r = estado.reg;
+  if (r.activo) {
+    if (r.t0 === null) { r.t0 = m.t_device_ms; r.arranque0 = m.arranque; }
+    r.filas.push(m);
+  }
+}
+
+function alRecibirAngulos(ev) {
+  const tRx = performance.now(), dg = estado.diag;
+  dg.angulos++;
+  const a = analizarAngulos(new TextDecoder("utf-8").decode(ev.target.value));
+  if (!a) { dg.angMal++; return; }
+  estado.ultimosAngulos = a;
+  // Asociación aproximada: solo con la trama IMU inmediatamente anterior y reciente.
+  const m = estado.ultima;
+  if (m && m.yaw === null && tRx - m.t_rx <= VENTANA_EMPAREJAMIENTO_MS) {
+    m.yaw = a.yaw; m.pitch = a.pitch; m.roll = a.roll;
+  }
+}
+
+/* ===================== REGISTRO Y EXPORTACIÓN ===================== */
+function iniciarRegistro() {
+  const r = estado.reg;
+  if (r.filas.length && !estado.exportado &&
+      !confirm("Hay un registro sin descargar. ¿Descartarlo y empezar uno nuevo?")) return;
+  const ahora = new Date();
+  r.sesion = "S" + ahora.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  r.filas = []; r.t0 = null; r.arranque0 = null; r.inicioISO = ahora.toISOString(); r.finISO = null;
+  r.activo = true; estado.exportado = false;
+  registrarEvento("REGISTRO_INICIO", r.sesion); habilitarControles(); pedirPantallaEncendida();
+}
+function detenerRegistro() {
+  const r = estado.reg; if (!r.activo) return;
+  r.activo = false; r.finISO = new Date().toISOString(); soltarPantalla();
+  registrarEvento("REGISTRO_FIN", `${r.filas.length} registros guardados`);
+  if (r.filas.length) mostrarPaso(4); else habilitarControles();
+}
+
+const COLUMNAS = ["session_id", "segment_id", "n", "t_device_ms", "t_session_ms", "t_receive", "t_receive_ms",
+  "Ax_ms2", "Ay_ms2", "Az_ms2", "Gx_dps", "Gy_dps", "Gz_dps", "A_total_ms2", "W_total_dps",
+  "Yaw_deg", "Pitch_deg", "Roll_deg", "angle_sync"];
+
+function filaCSV(r, m) {
+  const tSesion = m.arranque === r.arranque0 ? String(m.t_device_ms - r.t0) : "";
+  const epoca = origenReloj + m.t_rx, hayAng = m.yaw !== null;
+  return [r.sesion, m.segmento, m.n, m.t_device_ms, tSesion, new Date(epoca).toISOString(), epoca.toFixed(3),
+    m.ax.toFixed(2), m.ay.toFixed(2), m.az.toFixed(2), m.gx.toFixed(1), m.gy.toFixed(1), m.gz.toFixed(1),
+    m.a_total.toFixed(3), m.w_total.toFixed(3),
+    hayAng ? m.yaw.toFixed(1) : "", hayAng ? m.pitch.toFixed(1) : "", hayAng ? m.roll.toFixed(1) : "",
+    hayAng ? "approx" : "none"].join(",");
+}
+function construirCSV(r) {
+  const lineas = [COLUMNAS.join(",")];
+  for (const m of r.filas) lineas.push(filaCSV(r, m));
+  return lineas.join("\r\n") + "\r\n";
+}
+function descargarEnlace(nombre, blob) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = nombre;
+  document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+/* En teléfono abre la hoja de compartir (Archivos, correo, AirDrop…); en computadora descarga.
+   Devuelve false solo si la persona canceló. */
+async function descargar(nombre, contenido, tipo) {
+  const blob = new Blob([contenido], { type: tipo });
+  if (esTactil() && navigator.canShare && typeof File === "function") {
+    const archivo = new File([blob], nombre, { type: tipo.split(";")[0] });
+    if (navigator.canShare({ files: [archivo] })) {
+      try { await navigator.share({ files: [archivo], title: nombre }); return true; }
+      catch (err) { if (err && err.name === "AbortError") return false; }
+    }
+  }
+  descargarEnlace(nombre, blob); return true;
+}
+async function exportarCSV() {
+  const r = estado.reg; if (!r.filas.length) return;
+  if (!await descargar(`${r.sesion}.csv`, construirCSV(r), "text/csv;charset=utf-8")) return;
+  estado.exportado = true; registrarEvento("EXPORTAR_CSV", `${r.filas.length} filas`);
+  $("textoGuardar").textContent = "Datos guardados. Puedes hacer otro registro o cerrar la página.";
+  brindis("Datos guardados");
+}
+async function exportarMetadatos() {
+  const r = estado.reg, dg = estado.diag, d = estado.dispositivo;
+  const meta = {
+    session_id: r.sesion, inicio: r.inicioISO, fin: r.finISO, registros_guardados: r.filas.length,
+    resumen_sesion: resumirSesion(r),
+    dispositivo: { nombre: d ? d.name : null, id_navegador: d ? d.id : null, servicio: UUID.servicio },
+    unidades: { t_device_ms: "ms desde el arranque del dispositivo", t_session_ms: "ms desde la primera fila (reloj del dispositivo)",
+      t_receive: "ISO 8601 UTC, instante de recepción en la computadora", t_receive_ms: "ms desde época Unix (recepción)",
+      aceleracion: "m/s2, incluye gravedad", velocidad_angular: "grados/s, sesgo restado en el firmware",
+      angulos: "grados, 0 a 360, relativos al cero del firmware" },
+    configuracion_declarada_firmware: { acelerometro_hz: 104, giroscopio_hz: 104, filtro_hz_aprox: 100,
+      publicacion_ble_hz_aprox: 20, rango_acelerometro_g: 16, rango_giroscopio_dps: 2000, filtro: "Madgwick, beta 0.05" },
+    notas: ["angle_sync=approx: ángulo asociado a la trama IMU inmediatamente anterior; no es sincronización garantizada.",
+      "t_session_ms queda vacío en filas posteriores a un reinicio del dispositivo.",
+      "resumen_sesion cubre solo las filas guardadas; diagnostico cubre desde la última conexión o reinicio manual de contadores."],
+    diagnostico: { tramas_validas: dg.validas, tamano_incorrecto: dg.tamano, notificaciones_angulos: dg.angulos,
+      angulos_formato_invalido: dg.angMal, tramas_sin_angulo: dg.sinAngulo, saltos_contador: dg.saltos,
+      registros_faltantes: dg.faltantes, repetidos: dg.repetidos, reinicios: dg.reinicios, desconexiones: estado.desconexiones,
+      intervalo_ms: { muestras: dg.dt.k, media: dg.dt.k ? dg.dt.media : null, min: dg.dt.k ? dg.dt.min : null,
+        max: dg.dt.k ? dg.dt.max : null, desviacion: dg.dt.k > 1 ? desviacion(dg.dt) : null },
+      histograma_ms: CUBETAS.map((c, i) => ({ intervalo: c.etiqueta, cuenta: dg.hist[i] })) },
+    eventos: estado.eventos,
+  };
+  if (!await descargar(`${r.sesion}_informe.json`, JSON.stringify(meta, null, 2), "application/json")) return;
+  registrarEvento("EXPORTAR_INFORME", ""); brindis("Informe guardado");
+}
+
+/* ===================== PINTADO (independiente de la recepción) ===================== */
+const NS = "http://www.w3.org/2000/svg";
+const R_DIAL = 50;
+function puntoDial(grados) { const t = grados * Math.PI / 180; return [60 + R_DIAL * Math.sin(t), 60 - R_DIAL * Math.cos(t)]; }
+function crearDial(svg) {
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); svg.append(e); return e; };
+  el("circle", { cx: 60, cy: 60, r: R_DIAL, fill: "none", stroke: "#e8edf0", "stroke-width": 7 });
+  const arco = el("path", { fill: "none", stroke: "#2a6a92", "stroke-width": 7, "stroke-linecap": "round", visibility: "hidden" });
+  el("line", { x1: 60, y1: 3, x2: 60, y2: 17, stroke: "#14293a", "stroke-width": 2.5, "stroke-linecap": "round" });   // marca del cero
+  const bola = el("circle", { r: 7, fill: "#d7ea3f", stroke: "#14293a", "stroke-width": 1.8, visibility: "hidden" });
+  return { arco, bola };
+}
+const agujas = {};
+function pintarAngulo(clave, idValor, idSub, v) {
+  $(idValor).textContent = fmt(v, 1);
+  const hay = Number.isFinite(v), d = agujas[clave];
+  d.bola.setAttribute("visibility", hay ? "visible" : "hidden");
+  if (!hay) { $(idSub).textContent = ""; d.arco.setAttribute("visibility", "hidden"); return; }
+  const s = equivalenteConSigno(v);
+  $(idSub).textContent = `${s > 0 ? "+" : ""}${s.toFixed(1)}°`;
+  const [x, y] = puntoDial(v);                    // 359° y 0° quedan juntos en el aro
+  d.bola.setAttribute("cx", x.toFixed(2)); d.bola.setAttribute("cy", y.toFixed(2));
+  if (Math.abs(s) < 0.3) { d.arco.setAttribute("visibility", "hidden"); return; }
+  d.arco.setAttribute("visibility", "visible");
+  d.arco.setAttribute("d", `M60 ${60 - R_DIAL} A${R_DIAL} ${R_DIAL} 0 0 ${s >= 0 ? 1 : 0} ${x.toFixed(2)} ${y.toFixed(2)}`);
+}
+
+function prepararLienzo(canvas) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (!w || !h) return null;
+  if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+  const g = canvas.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  g.strokeStyle = "#eceee4"; g.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) { const y = Math.round(6 + (h - 8) * i / 3) + .5; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+  return { g, w, h };
+}
+/* puntos: [{x: 0..1, v}], con el más reciente al final. */
+function trazarSerie(l, puntos, tope, marcarFinal) {
+  const { g, w, h } = l, Y = v => h - 2 - (h - 10) * v / tope;
+  if (puntos.length < 2) return;
+  g.beginPath(); puntos.forEach((p, i) => { const x = p.x * w, y = Y(p.v); if (i) g.lineTo(x, y); else g.moveTo(x, y); });
+  g.strokeStyle = "#2a6a92"; g.lineWidth = 2.2; g.lineJoin = "round"; g.stroke();
+  g.lineTo(puntos[puntos.length - 1].x * w, h); g.lineTo(puntos[0].x * w, h); g.closePath();
+  const grad = g.createLinearGradient(0, 0, 0, h); grad.addColorStop(0, "rgba(42,106,146,.26)"); grad.addColorStop(1, "rgba(42,106,146,0)");
+  g.fillStyle = grad; g.fill();
+  if (marcarFinal) {
+    const u = puntos[puntos.length - 1], x = Math.min(u.x * w, w - 6);
+    g.beginPath(); g.arc(x, Y(u.v), 5, 0, 2 * Math.PI); g.fillStyle = "#d7ea3f"; g.fill(); g.strokeStyle = "#14293a"; g.lineWidth = 1.6; g.stroke();
+  }
+}
+function dibujarTrazo(canvas, clave, idMax, unidad, ahora) {
+  const l = prepararLienzo(canvas); if (!l) return;
+  const hs = estado.historial; if (!hs.length) { $(idMax).textContent = ""; return; }
+  let max = 0; for (const p of hs) if (p[clave] > max) max = p[clave];
+  trazarSerie(l, hs.map(p => ({ x: 1 - (ahora - p.t) / VENTANA_TRAZO_MS, v: p[clave] })), max > 0 ? max * 1.18 : 1, true);
+  $(idMax).textContent = `Máximo ${max.toFixed(1)} ${unidad}`;
+}
+function dibujarSesion() {
+  const r = estado.reg, f = r.filas.filter(m => m.arranque === r.arranque0), l = prepararLienzo($("cSesion"));
+  if (!l || f.length < 2) { $("sMaxW").textContent = "—"; $("sFin").textContent = ""; return; }
+  const dur = f[f.length - 1].t_device_ms - r.t0; let max = 0; for (const m of f) if (m.w_total > max) max = m.w_total;
+  trazarSerie(l, f.map(m => ({ x: dur > 0 ? (m.t_device_ms - r.t0) / dur : 0, v: m.w_total })), max > 0 ? max * 1.18 : 1, false);
+  $("sMaxW").textContent = max.toFixed(1); $("sFin").textContent = (dur / 1000).toFixed(1) + " s";
+}
+
+function pintarResumen() {
+  const s = resumirSesion(estado.reg);
+  $("sDur").textContent = s.duracion_s === null ? "—" : s.duracion_s.toFixed(1);
+  $("sFilas").textContent = s.filas;
+  $("sHz").textContent = s.lecturas_por_s === null ? "—" : s.lecturas_por_s.toFixed(1);
+  $("sFaltan").textContent = s.faltantes;
+  const partes = [];
+  if (s.cortes) partes.push(`La conexión se interrumpió ${s.cortes} ${s.cortes === 1 ? "vez" : "veces"} durante el registro; lo ocurrido en esas pausas no se recibió.`);
+  partes.push(s.faltantes === 0
+    ? "Según el contador del sensor, no faltó ninguna lectura mientras hubo conexión."
+    : `Según el contador del sensor, faltaron ${s.faltantes} lecturas mientras hubo conexión.`);
+  if (s.sin_angulo) partes.push(`${s.sin_angulo} lecturas quedaron sin ángulo.`);
+  $("sFrase").textContent = partes.join(" ");
+  const atencion = s.cortes > 0 || s.faltantes > 0;
+  $("veredicto").className = "veredicto" + (atencion ? " atencion" : ""); $("veredicto").firstElementChild.textContent = atencion ? "!" : "✓";
+  dibujarSesion();
+  $("textoGuardar").textContent = estado.exportado
+    ? "Datos guardados. Puedes hacer otro registro o cerrar la página."
+    : "El registro sigue en esta pestaña. Descárgalo antes de cerrarla.";
+}
+
+function pintar() {
+  const m = estado.ultima, a = estado.ultimosAngulos, dg = estado.diag;
+  const ahora = performance.now(), hs = estado.historial;
+  while (hs.length && ahora - hs[0].t > VENTANA_TRAZO_MS) hs.shift();
+
+  pintarAngulo("yaw", "vYaw", "sYaw", a ? a.yaw : NaN);
+  pintarAngulo("pitch", "vPitch", "sPitch", a ? a.pitch : NaN);
+  pintarAngulo("roll", "vRoll", "sRoll", a ? a.roll : NaN);
+  $("vAtot").textContent = m ? fmt(m.a_total, 2) : "—";
+  $("vWtot").textContent = m ? fmt(m.w_total, 1) : "—";
+  if (estado.paso === 3) { dibujarTrazo($("cA"), "a", "maxA", "m/s²", ahora); dibujarTrazo($("cW"), "w", "maxW", "°/s", ahora); }
+
+  $("vN").textContent = m ? m.n : "—";
+  $("sT").textContent = m ? m.t_device_ms : "—";
+  for (const [id, k, d] of [["vAx", "ax", 2], ["vAy", "ay", 2], ["vAz", "az", 2], ["vGx", "gx", 1], ["vGy", "gy", 1], ["vGz", "gz", 1]])
+    $(id).textContent = m ? fmt(m[k], d) : "—";
+
+  $("dValidas").textContent = dg.validas; $("dTamano").textContent = dg.tamano;
+  $("dAngulos").textContent = dg.angulos; $("dAngMal").textContent = dg.angMal; $("dSinAng").textContent = dg.sinAngulo;
+  $("dSaltos").textContent = dg.saltos; $("dFaltan").textContent = dg.faltantes; $("dRepetidos").textContent = dg.repetidos;
+  $("dReinicios").textContent = dg.reinicios; $("dDescon").textContent = estado.desconexiones; $("dSegmento").textContent = estado.segmento;
+
+  const rx = estado.rxReciente;
+  while (rx.length && ahora - rx[0] > 2000) rx.shift();
+  const hzRx = estado.conectado && rx.length > 1 ? (rx.length - 1) / ((rx[rx.length - 1] - rx[0]) / 1000) : null;
+  $("dHzRx").textContent = hzRx === null ? "—" : hzRx.toFixed(1) + " Hz";
+  const p = dg.segPrimero, u = dg.segUltimo;
+  if (p && u && u.t > p.t) {
+    $("dHzDev").textContent = ((dg.segRecibidos - 1) / ((u.t - p.t) / 1000)).toFixed(2) + " Hz";
+    const esp = u.n - p.n + 1;
+    $("dEspRec").textContent = `${esp} / ${dg.segRecibidos}` + (esp > 0 ? ` (${(100 * dg.segRecibidos / esp).toFixed(2)} %)` : "");
+  } else { $("dHzDev").textContent = "—"; $("dEspRec").textContent = "—"; }
+  $("dDtMedia").textContent = dg.dt.k ? dg.dt.media.toFixed(2) + " ms" : "—";
+  $("dDtMinMax").textContent = dg.dt.k ? `${dg.dt.min} / ${dg.dt.max} ms` : "—";
+  $("dDtStd").textContent = dg.dt.k > 1 ? desviacion(dg.dt).toFixed(2) + " ms" : "—";
+  const total = dg.hist.reduce((s, x) => s + x, 0), filas = $("histograma").children;
+  CUBETAS.forEach((c, i) => {
+    const tr = filas[i], pct = total ? 100 * dg.hist[i] / total : 0;
+    tr.children[1].textContent = dg.hist[i];
+    tr.children[2].textContent = total ? pct.toFixed(1) + " %" : "—";
+    tr.children[3].firstChild.style.width = pct.toFixed(1) + "%";
+  });
+
+  // Línea de recepción en lenguaje llano (valores medidos)
+  const lr = $("lineaRecepcion"); lr.textContent = "";
+  if (!estado.conectado) { lr.textContent = "Sin conexión con el sensor."; }
+  else if (hzRx === null) { lr.textContent = "Esperando lecturas del sensor…"; }
+  else {
+    const b = document.createElement("b");
+    b.className = dg.faltantes ? "atencion" : "bien";
+    b.textContent = dg.faltantes ? `Faltan ${dg.faltantes} lecturas desde que se conectó.` : "Ninguna lectura faltante desde que se conectó.";
+    lr.append(`Llegan ${hzRx.toFixed(1)} lecturas por segundo.`, b);
+  }
+
+  const r = estado.reg;
+  $("rEstado").textContent = r.activo ? (estado.conectado ? "Registrando" : "Registrando, sin conexión") : "Listo para registrar";
+  $("marcador").classList.toggle("grabando", r.activo);
+  $("rFilas").textContent = r.filas.length;
+  const ult = r.filas.length ? r.filas[r.filas.length - 1] : null;
+  const seg = r.activo && ult && ult.arranque === r.arranque0 ? (ult.t_device_ms - r.t0) / 1000 : 0;
+  $("rTiempo").textContent = String(Math.floor(seg / 60)).padStart(2, "0") + ":" + (seg % 60).toFixed(1).padStart(4, "0");
+  $("infoDispositivo").textContent = !estado.conectado ? "" : hzRx === null ? "Esperando lecturas…" : `${hzRx.toFixed(1)} lecturas por segundo`;
+}
+
+/* ===================== TELÉFONO ===================== */
+function esApple() {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+function esTactil() { return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches); }
+
+/* Mantiene la pantalla encendida mientras se registra (si el navegador lo permite). */
+let bloqueoPantalla = null;
+async function pedirPantallaEncendida() {
+  if (!("wakeLock" in navigator) || bloqueoPantalla) return;
+  try { bloqueoPantalla = await navigator.wakeLock.request("screen");
+        bloqueoPantalla.addEventListener("release", () => { bloqueoPantalla = null; }); } catch (_) {}
+}
+function soltarPantalla() { if (bloqueoPantalla) { bloqueoPantalla.release().catch(() => {}); bloqueoPantalla = null; } }
+
+/* ===================== ARRANQUE ===================== */
+function iniciar() {
+  pintarTablaCaracteristicas(null);
+  agujas.yaw = crearDial($("dYaw")); agujas.pitch = crearDial($("dPitch")); agujas.roll = crearDial($("dRoll"));
+  const h = $("histograma");
+  for (const c of CUBETAS) {
+    const tr = document.createElement("tr");
+    for (let i = 0; i < 4; i++) { const td = document.createElement("td"); if (i === 1 || i === 2) td.className = "num"; tr.append(td); }
+    tr.children[0].textContent = c.etiqueta; tr.children[3].style.width = "40%";
+    const b = document.createElement("div"); b.className = "bar"; b.style.width = "0%"; tr.children[3].append(b);
+    h.append(tr);
+  }
+  const okPrueba = autoprueba();
+  $("autoprueba").textContent = "Autoprueba del decodificador con tramas fijas: " + (okPrueba ? "correcta." : "FALLÓ.");
+  if (!okPrueba) $("autoprueba").className = "nota bad";
+
+  if (!navigator.bluetooth) {
+    const av = $("avisoNavegador"); av.hidden = false;
+    av.textContent = esApple()
+      ? "Safari y Chrome no pueden usar Bluetooth en iPhone. Instala la app Bluefy desde el App Store y abre esta misma dirección ahí."
+      : "Este navegador no puede usar Bluetooth. Abre esta página con Chrome (Android o computadora) o con Edge.";
+  } else {
+    if (navigator.bluetooth.getAvailability) navigator.bluetooth.getAvailability().then(disp => {
+      if (!disp) { const av = $("avisoNavegador"); av.hidden = false;
+        av.textContent = "El Bluetooth de este equipo está apagado. Enciéndelo y recarga la página."; }
+    }).catch(() => {});
+    $("btnBuscar").onclick = () => buscar(false);
+    $("btnBuscarNombre").onclick = () => buscar(true);
+  }
+  document.querySelectorAll("[data-ir]").forEach(b => { b.onclick = () => mostrarPaso(Number(b.dataset.ir)); });
+  $("btnReconectar").onclick = conectar;
+  $("btnDesconectar").onclick = () => { const d = estado.dispositivo;
+    if (d && d.gatt.connected) { estado.desconexionPedida = true; d.gatt.disconnect(); } };
+  $("btnCero").onclick = ponerCero; $("btnCero2").onclick = ponerCero;
+  $("btnPulso").onclick = async () => { if (await escribirByte("motor", 0x01, "MOTOR_PULSO")) brindis("Orden de vibración recibida por el sensor"); };
+  $("chkAuto").onchange = async ev => {
+    const activar = ev.target.checked;
+    await escribirByte("motor", activar ? 0x02 : 0x00, activar ? "MOTOR_AUTO_ON" : "MOTOR_AUTO_OFF");
+    setTimeout(leerEstadoMotor, 200);
+  };
+  $("btnReiniciarDiag").onclick = () => {
+    estado.diag = nuevoDiagnostico(); estado.desconexiones = 0;
+    if (estado.ultima) { estado.diag.segPrimero = { n: estado.ultima.n, t: estado.ultima.t_device_ms };
+      estado.diag.segUltimo = estado.diag.segPrimero; estado.diag.segRecibidos = 1; }
+    registrarEvento("CONTADORES_REINICIADOS", "");
+  };
+  $("btnIniciarReg").onclick = iniciarRegistro;
+  $("btnDetenerReg").onclick = detenerRegistro;
+  $("btnCSV").onclick = exportarCSV;
+  $("btnMeta").onclick = exportarMetadatos;
+  $("btnNuevo").onclick = () => mostrarPaso(estado.conectado ? 3 : 1);
+  window.addEventListener("beforeunload", ev => {
+    if (estado.reg.filas.length && !estado.exportado) { ev.preventDefault(); ev.returnValue = ""; }
+  });
+  mostrarPaso(1);
+  window.addEventListener("load", colocarPelota); setTimeout(colocarPelota, 400);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && estado.reg.activo) pedirPantallaEncendida();
+    if (document.visibilityState === "hidden" && estado.reg.activo) registrarEvento("PAGINA_OCULTA", "durante el registro");
+  });
+  window.addEventListener("resize", () => { colocarPelota(); if (estado.paso === 4) dibujarSesion(); });
+  setInterval(pintar, 100);   // 10 Hz; la recepción no depende de este temporizador
+}
+if (typeof document !== "undefined") iniciar();
+</script>
+</body>
+</html>
